@@ -1,0 +1,69 @@
+{
+    "id": "ArcticSecurityEwsConnector",
+    "title": "Arctic Security EWS Connector",
+    "publisher": "Arctic Security",
+    "descriptionMarkdown": "The Arctic Security EWS Connector brings early warning data from the Arctic Security Early Warning Service into Microsoft Sentinel. Early warning data contains observations of cybersecurity issues found associated with the recipient.",
+    "availability": {
+        "status": 1,
+        "isPreview": true
+    },
+    "permissions": {
+        "resourceProvider": [
+            {
+                "provider": "Microsoft.OperationalInsights/workspaces",
+                "permissionsDisplayText": "read and write permissions on the workspace are required.",
+                "providerDisplayName": "Workspace",
+                "scope": "Workspace",
+                "requiredPermissions": {
+                    "write": true,
+                    "read": true,
+                    "delete": true
+                }
+            },
+            {
+                "provider": "Microsoft.Insights/dataCollectionEndpoints",
+                "permissionsDisplayText": "permissions to create and manage Data Collection Endpoints are required.",
+                "providerDisplayName": "Data Collection Endpoint",
+                "scope": "ResourceGroup",
+                "requiredPermissions": {
+                    "write": true,
+                    "read": true
+                }
+            },
+            {
+                "provider": "Microsoft.Insights/dataCollectionRules",
+                "permissionsDisplayText": "permissions to create and manage Data Collection Rules are required.",
+                "providerDisplayName": "Data Collection Rule",
+                "scope": "ResourceGroup",
+                "requiredPermissions": {
+                    "write": true,
+                    "read": true
+                }
+            }
+        ],
+        "customs": [
+            {
+                "name": "Microsoft.Web/sites permissions",
+                "description": "Read and write permissions to Azure Functions to create a Function App is required. [See the documentation to learn more about Azure Functions](https://docs.microsoft.com/azure/azure-functions/)."
+            }
+        ]
+    },
+    "instructionSteps": [
+        {
+            "title": "",
+            "description": ">**NOTE:** This connector uses Azure Functions to connect to the Arctic Security EWS to fetch early warning data and to push it into Microsoft Sentinel. This might result in additional data ingestion costs. Check the [Azure Functions pricing page](https://azure.microsoft.com/pricing/details/functions/) for details."
+        },
+        {
+            "title": "",
+            "description": ">**(Optional Step)** Securely store API authorization key(s) or token(s) in Azure Key Vault. Azure Key Vault provides a secure mechanism to store and retrieve key values. [Follow these instructions](https://docs.microsoft.com/azure/app-service/app-service-key-vault-references) to use Azure Key Vault with an Azure Function App."
+        },
+        {
+            "title": "",
+            "description": "**STEP 1 - Configuration steps to obtain the Arctic Security EWS Connector API URL**\n\n 1. Log in to your Arctic EWS portal.\n\n 2. Navigate to the Configuration tab and enable the 'Customer Matched Data' API if it is not already enabled. \n\n 3.Click on the link icon on the right side of the activation switch to copy the 'Customer Matched Data API URL to your clipboard.\n\n 4. Use the copied API URL as the EWS_URL parameter when configuring the Function App."
+        },
+        {
+            "title": "",
+            "description": "**STEP 2 - Deploy the connector and the associated Azure Function**\n\nThe deployment template creates the Storage Account, Data Collection Endpoint, custom log table, Data Collection Rule, Function App with Managed Identity, and the role assignment that lets the Function App send data to the Data Collection Rule.\n\n1. Open the [releases](https://github.com/arcticsecurity/sentinel-connector/releases) of the connector repository and copy the URL of the connector package `ArcticSecurityEwsConnector.zip` of the version you want to deploy. The URL must be readable by Azure without authentication.\n2. Open the [deployment template](https://portal.azure.com/#create/Microsoft.Template/uri/https%3A%2F%2Fraw.githubusercontent.com%2Farcticsecurity%2Fsentinel-connector%2Fv0.8.0%2Fdeployment_template.json) in the Azure portal. The link loads the template of version v0.8.0; change the version in the link to deploy another version. The template can also be copied from the repository and pasted into [Deploy a custom template](https://portal.azure.com/#create/Microsoft.Template) with **Build your own template in the editor**.\n3. Select the preferred **Subscription**, **Resource Group** and **Location**. The resource group must contain the Log Analytics workspace.\n4. Enter the **EwsUrl** (from STEP 1), the **WorkspaceResourceId** of the Log Analytics workspace, and the **PackageUrl** of the connector package.\n5. Review the parameters and start the deployment.\n\nAssigning the role automatically requires Owner or User Access Administrator permissions. Without them, deploy with **AssignDcrRoleToFunctionIdentity** set to false and assign the **Monitoring Metrics Publisher** role on the Data Collection Rule to the Function App identity manually."
+        }
+    ]
+}

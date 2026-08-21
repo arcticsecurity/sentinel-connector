@@ -1,0 +1,123 @@
+---
+name: CI
+# yamllint disable-line rule:truthy
+on:
+  push:
+
+concurrency:
+  group: ${{ github.workflow }}-${{ github.ref }}
+  cancel-in-progress: true
+
+permissions: {}
+
+jobs:
+  lint:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version-file: ".python-version"
+      - name: Install dependencies
+        run:
+          pip3 install -r requirements-dev.txt
+      - name: Run ruff check
+        run: ruff check .
+      - name: Run ruff format
+        run: ruff format --check .
+      - name: Run ShellCheck
+        run: git ls-files '*.sh' | xargs shellcheck
+      - name: Check for tabs in shell scripts
+        run: |
+          ! git ls-files '*.sh' | xargs grep -P "\t" --line-number
+      - name: Run yamllint
+        run: |
+          git ls-files '*.yml' '*.yaml' | xargs yamllint -s \
+              -d "{extends: default, rules: {line-length: disable}}"
+      - name: Check version references
+        run: ./bump_version.sh --check
+
+  build:
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    needs:
+      - lint
+    outputs:
+      VERSION: ${{ steps.version-check.outputs.VERSION }}
+      NEW_VERSION: ${{ steps.version-check.outputs.NEW_VERSION }}
+    permissions:
+      contents: read
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@3d3c42e5aac5ba805825da76410c181273ba90b1  # v7.0.1
+        with:
+          fetch-depth: 0
+          fetch-tags: true
+          persist-credentials: false
+      - name: Setup Python
+        uses: actions/setup-python@5fda3b95a4ea91299a34e894583c3862153e4b97  # v7.0.0
+        with:
+          python-version-file: ".python-version"
+      - name: Build package
+        run: ./create_connector_zip.sh
+      - name: Store package as artifact
+        uses: actions/upload-artifact@043fb46d1a93c77aae656e7c1c64a875d1fc6a0a   # v7.0.1
+        with:
+          path: ./Data Connectors/ArcticSecurityEwsConnector/ArcticSecurityEwsConnector.zip
+          archive: false
+          retention-days: 7
+      - name: Detect version change
+        id: version-check
+        run: |
+          VERSION="$(sed -n 's/^VERSION=\([0-9\.]\+\)$/\1/p' VERSION)"
+          if [ -n "$VERSION" ] && ! git rev-parse "v${VERSION}" -- > /dev/null 2>&1 ; then
+              NEW_VERSION=true
+          else
+              NEW_VERSION=false
+          fi
+          {
+              echo "VERSION=${VERSION}"
+              echo "NEW_VERSION=${NEW_VERSION}"
+          } >> "$GITHUB_OUTPUT"
+
+  release:
+    if: |
+      github.event_name == 'push' &&
+      github.ref == 'refs/heads/main' &&
+      needs.build.outputs.NEW_VERSION == 'true'
+    runs-on: ubuntu-slim
+    timeout-minutes: 5
+    needs:
+      - build
+    permissions:
+      contents: write
+    steps:
+      - name: Download package from artifacts
+        uses: actions/download-artifact@3e5f45b2cfb9172054b4087a40e8e0b5a5461e7c  # v8.0.1
+        with:
+          name: ArcticSecurityEwsConnector.zip
+          path: dist/
+          skip-decompress: true
+      - name: Generate release notes
+        run: |
+          gh api "repos/${GITHUB_REPOSITORY}/releases/generate-notes" -f tag_name="$TAG" | \
+              jq -r '.body' | sed \
+              -e 's/ by @[^ ]\+ in / in /g' \
+              -e '/## New Contributors/,/\*\*Full Changelog\*\*/{ /\*\*Full Changelog\*\*/!d; }' \
+              > release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          TAG: v${{ needs.build.outputs.VERSION }}
+      - name: Create GitHub release
+        run: gh release create "$TAG" dist/ArcticSecurityEwsConnector.zip --notes-file release-notes.md
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+          GH_REPO: ${{ github.repository }}
+          TAG: v${{ needs.build.outputs.VERSION }}

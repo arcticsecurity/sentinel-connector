@@ -1,0 +1,271 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "workspace": {
+            "type": "String"
+        }
+    },
+    "resources": [
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/33646af6-3173-4b8b-94e8-b98e297a2c31')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/33646af6-3173-4b8b-94e8-b98e297a2c31')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-11-01-preview",
+            "properties": {
+                "displayName": "EWS Shared Resource",
+                "description": "",
+                "severity": "Informational",
+                "enabled": true,
+                "query": "ArcticSecurityEws_CL | where shared_resource == \"yes\"",
+                "queryFrequency": "PT1H",
+                "queryPeriod": "PT1H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "P7D",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [
+                            "IP"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": [
+                            "EWSType"
+                        ]
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "AlertPerResult"
+                },
+                "alertDetailsOverride": {
+                    "alertDisplayNameFormat": "Arctic EWS Shared Resource Notification: {{event_type}} in {{ip}}   ",
+                    "alertDescriptionFormat": "Description: {{description}}\nMatch Description: {{match_description}}",
+                    "alertSeverityColumnName": "urgency",
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "EWSType": "event_type"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "ip"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/d92396e0-7dcf-4503-8657-ae538c6bd795')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/d92396e0-7dcf-4503-8657-ae538c6bd795')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-11-01-preview",
+            "properties": {
+                "displayName": "EWS High",
+                "description": "",
+                "severity": "High",
+                "enabled": true,
+                "query": "ArcticSecurityEws_CL | where urgency == \"high\" and shared_resource == \"no\"",
+                "queryFrequency": "PT1H",
+                "queryPeriod": "PT1H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "P7D",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [
+                            "IP"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": [
+                            "EWSType"
+                        ]
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "AlertPerResult"
+                },
+                "alertDetailsOverride": {
+                    "alertDisplayNameFormat": "Arctic EWS Notification: {{event_type}} in {{ip}}   ",
+                    "alertDescriptionFormat": "Description: {{description}}\nMatch Description: {{match_description}}",
+                    "alertSeverityColumnName": "urgency",
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "EWSType": "event_type"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "ip"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/f5526c95-e39b-4666-9df1-0fd95e607a51')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/f5526c95-e39b-4666-9df1-0fd95e607a51')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-11-01-preview",
+            "properties": {
+                "displayName": "EWS Medium",
+                "description": "",
+                "severity": "Medium",
+                "enabled": true,
+                "query": "ArcticSecurityEws_CL | where urgency == \"medium\" and shared_resource == \"no\"",
+                "queryFrequency": "PT1H",
+                "queryPeriod": "PT1H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "P7D",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [
+                            "IP"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": [
+                            "EWSType"
+                        ]
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "AlertPerResult"
+                },
+                "alertDetailsOverride": {
+                    "alertDisplayNameFormat": "Arctic EWS Notification: {{event_type}} in {{ip}}   ",
+                    "alertDescriptionFormat": "Description: {{description}}\nMatch Description: {{match_description}}",
+                    "alertSeverityColumnName": "urgency",
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "EWSType": "event_type"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "ip"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        },
+        {
+            "id": "[concat(resourceId('Microsoft.OperationalInsights/workspaces/providers', parameters('workspace'), 'Microsoft.SecurityInsights'),'/alertRules/50e49c3b-41a9-4395-9ac6-ed99c4f2c9b5')]",
+            "name": "[concat(parameters('workspace'),'/Microsoft.SecurityInsights/50e49c3b-41a9-4395-9ac6-ed99c4f2c9b5')]",
+            "type": "Microsoft.OperationalInsights/workspaces/providers/alertRules",
+            "kind": "Scheduled",
+            "apiVersion": "2022-11-01-preview",
+            "properties": {
+                "displayName": "EWS Low",
+                "description": "",
+                "severity": "Low",
+                "enabled": true,
+                "query": "ArcticSecurityEws_CL | where urgency == \"low\" and shared_resource == \"no\"",
+                "queryFrequency": "PT1H",
+                "queryPeriod": "PT1H",
+                "triggerOperator": "GreaterThan",
+                "triggerThreshold": 0,
+                "suppressionDuration": "PT5H",
+                "suppressionEnabled": false,
+                "startTimeUtc": null,
+                "tactics": [],
+                "techniques": [],
+                "alertRuleTemplateName": null,
+                "incidentConfiguration": {
+                    "createIncident": true,
+                    "groupingConfiguration": {
+                        "enabled": false,
+                        "reopenClosedIncident": false,
+                        "lookbackDuration": "P7D",
+                        "matchingMethod": "AllEntities",
+                        "groupByEntities": [
+                            "IP"
+                        ],
+                        "groupByAlertDetails": [],
+                        "groupByCustomDetails": [
+                            "EWSType"
+                        ]
+                    }
+                },
+                "eventGroupingSettings": {
+                    "aggregationKind": "AlertPerResult"
+                },
+                "alertDetailsOverride": {
+                    "alertDisplayNameFormat": "Arctic EWS Notification: {{event_type}} in {{ip}}   ",
+                    "alertDescriptionFormat": "Description: {{description}}\nMatch Description: {{match_description}}",
+                    "alertSeverityColumnName": "urgency",
+                    "alertDynamicProperties": []
+                },
+                "customDetails": {
+                    "EWSType": "event_type"
+                },
+                "entityMappings": [
+                    {
+                        "entityType": "IP",
+                        "fieldMappings": [
+                            {
+                                "identifier": "Address",
+                                "columnName": "ip"
+                            }
+                        ]
+                    }
+                ],
+                "sentinelEntitiesMappings": null,
+                "templateVersion": null
+            }
+        }
+    ]
+}

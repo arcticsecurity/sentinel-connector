@@ -1,0 +1,386 @@
+{
+    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+    "contentVersion": "1.0.0.0",
+    "parameters": {
+        "FunctionName": {
+            "defaultValue": "EWSconnect",
+            "minLength": 1,
+            "maxLength": 11,
+            "type": "string",
+            "metadata": {
+                "description": "Name prefix for the created resources. A unique suffix is added automatically."
+            }
+        },
+        "EwsUrl": {
+            "type": "string",
+            "metadata": {
+                "description": "URL for the Arctic EWS Customer Matched Data Reporting API, including the apikey query parameter."
+            }
+        },
+        "WorkspaceResourceId": {
+            "type": "string",
+            "metadata": {
+                "description": "Resource ID of the Log Analytics workspace, for example /subscriptions/SUBSCRIPTION-ID/resourceGroups/RESOURCE-GROUP/providers/Microsoft.OperationalInsights/workspaces/WORKSPACE-NAME. Copy it from Properties or JSON View on the workspace. This is not the Workspace ID GUID shown on the workspace Overview page. The workspace can be in another resource group or subscription."
+            }
+        },
+        "AssignDcrRoleToFunctionIdentity": {
+            "defaultValue": true,
+            "type": "bool",
+            "metadata": {
+                "description": "Set to true to assign Monitoring Metrics Publisher role on DCR to the Function App managed identity. Requires Owner or User Access Administrator permissions. Please note that if you set this to false, you will need to assign the role manually for the Function App to be able to send data to the DCR."
+            }
+        },
+        "PackageUrl": {
+            "type": "string",
+            "metadata": {
+                "description": "Public URL to the connector ZIP package to deploy, for example a release asset URL of the connector repository. Azure reads the URL anonymously."
+            }
+        }
+    },
+    "variables": {
+        "FunctionName": "[concat(toLower(parameters('FunctionName')), uniqueString(resourceGroup().id))]",
+        "StorageSuffix": "[environment().suffixes.storage]",
+        "DceName": "[concat(variables('FunctionName'), '-dce')]",
+        "DcrName": "[concat(variables('FunctionName'), '-dcr')]",
+        "WorkspaceName": "[last(split(parameters('WorkspaceResourceId'), '/'))]",
+        "WorkspaceSubscriptionId": "[split(parameters('WorkspaceResourceId'), '/')[2]]",
+        "WorkspaceResourceGroup": "[split(parameters('WorkspaceResourceId'), '/')[4]]",
+        "TableDeploymentName": "[concat(variables('FunctionName'), '-table')]",
+        "MonitoringDeploymentName": "[concat(variables('FunctionName'), '-monitoring')]",
+        "TableName": "ArcticSecurityEws_CL",
+        "DcrStreamName": "Custom-ArcticSecurityEws_CL"
+    },
+    "resources": [
+        {
+            "type": "Microsoft.Storage/storageAccounts",
+            "apiVersion": "2019-06-01",
+            "name": "[tolower(variables('FunctionName'))]",
+            "location": "[resourceGroup().location]",
+            "sku": {
+                "name": "Standard_LRS",
+                "tier": "Standard"
+            },
+            "kind": "StorageV2",
+            "properties": {
+                "allowBlobPublicAccess": false,
+                "minimumTlsVersion": "TLS1_2",
+                "networkAcls": {
+                    "bypass": "AzureServices",
+                    "virtualNetworkRules": [],
+                    "ipRules": [],
+                    "defaultAction": "Allow"
+                },
+                "supportsHttpsTrafficOnly": true,
+                "encryption": {
+                    "services": {
+                        "file": {
+                            "keyType": "Account",
+                            "enabled": true
+                        },
+                        "blob": {
+                            "keyType": "Account",
+                            "enabled": true
+                        }
+                    },
+                    "keySource": "Microsoft.Storage"
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[variables('MonitoringDeploymentName')]",
+            "dependsOn": [
+                "[resourceId(variables('WorkspaceSubscriptionId'), variables('WorkspaceResourceGroup'), 'Microsoft.Resources/deployments', variables('TableDeploymentName'))]"
+            ],
+            "properties": {
+                "mode": "Incremental",
+                "expressionEvaluationOptions": {
+                    "scope": "Inner"
+                },
+                "parameters": {
+                    "Location": {
+                        "value": "[reference(parameters('WorkspaceResourceId'), '2022-10-01', 'Full').location]"
+                    },
+                    "DceName": {
+                        "value": "[variables('DceName')]"
+                    },
+                    "DcrName": {
+                        "value": "[variables('DcrName')]"
+                    },
+                    "WorkspaceResourceId": {
+                        "value": "[parameters('WorkspaceResourceId')]"
+                    }
+                },
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "parameters": {
+                        "Location": {
+                            "type": "string"
+                        },
+                        "DceName": {
+                            "type": "string"
+                        },
+                        "DcrName": {
+                            "type": "string"
+                        },
+                        "WorkspaceResourceId": {
+                            "type": "string"
+                        }
+                    },
+                    "resources": [
+                        {
+                            "type": "Microsoft.Insights/dataCollectionEndpoints",
+                            "apiVersion": "2022-06-01",
+                            "name": "[parameters('DceName')]",
+                            "location": "[parameters('Location')]",
+                            "properties": {
+                                "networkAcls": {
+                                    "publicNetworkAccess": "Enabled"
+                                }
+                            }
+                        },
+                        {
+                            "type": "Microsoft.Insights/dataCollectionRules",
+                            "apiVersion": "2022-06-01",
+                            "name": "[parameters('DcrName')]",
+                            "location": "[parameters('Location')]",
+                            "kind": "Direct",
+                            "dependsOn": [
+                                "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('DceName'))]"
+                            ],
+                            "properties": {
+                                "dataCollectionEndpointId": "[resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('DceName'))]",
+                                "streamDeclarations": {
+                                    "Custom-ArcticSecurityEws_CL": {
+                                        "columns": [
+                                            {
+                                                "name": "TimeGenerated",
+                                                "type": "datetime"
+                                            },
+                                            {
+                                                "name": "RawData",
+                                                "type": "dynamic"
+                                            }
+                                        ]
+                                    }
+                                },
+                                "destinations": {
+                                    "logAnalytics": [
+                                        {
+                                            "name": "la",
+                                            "workspaceResourceId": "[parameters('WorkspaceResourceId')]"
+                                        }
+                                    ]
+                                },
+                                "dataFlows": [
+                                    {
+                                        "streams": [
+                                            "Custom-ArcticSecurityEws_CL"
+                                        ],
+                                        "destinations": [
+                                            "la"
+                                        ],
+                                        "transformKql": "source | extend category = tostring(RawData.category), description = tostring(RawData.description), domain_name = tostring(RawData.domain_name), event_type = tostring(RawData.type), ip = tostring(RawData.ip), issue_description = tostring(RawData.issue_description), issue_scope = tostring(RawData.issue_scope), issue_validation = tostring(RawData.issue_validation), malware_family = tostring(RawData.malware_family), match_description = tostring(RawData.match_description), port = tostring(RawData.port), related_domain_name = tostring(RawData.related_domain_name), reverse_dns = tostring(RawData.reverse_dns), service = tostring(RawData.service), shared_resource = tostring(RawData.shared_resource), source_time = todatetime(RawData.source_time), tracking_id = tostring(RawData.tracking_id), urgency = tostring(RawData.urgency), vulnerability = tostring(RawData.vulnerability), weakness = tostring(RawData.weakness), x509_subject_cn = tostring(RawData.x509_subject_cn)",
+                                        "outputStream": "Custom-ArcticSecurityEws_CL"
+                                    }
+                                ]
+                            }
+                        }
+                    ],
+                    "outputs": {
+                        "DceEndpoint": {
+                            "type": "string",
+                            "value": "[reference(resourceId('Microsoft.Insights/dataCollectionEndpoints', parameters('DceName')), '2022-06-01').logsIngestion.endpoint]"
+                        },
+                        "DcrImmutableId": {
+                            "type": "string",
+                            "value": "[reference(resourceId('Microsoft.Insights/dataCollectionRules', parameters('DcrName')), '2022-06-01').immutableId]"
+                        }
+                    }
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Resources/deployments",
+            "apiVersion": "2022-09-01",
+            "name": "[variables('TableDeploymentName')]",
+            "subscriptionId": "[variables('WorkspaceSubscriptionId')]",
+            "resourceGroup": "[variables('WorkspaceResourceGroup')]",
+            "properties": {
+                "mode": "Incremental",
+                "template": {
+                    "$schema": "https://schema.management.azure.com/schemas/2019-04-01/deploymentTemplate.json#",
+                    "contentVersion": "1.0.0.0",
+                    "resources": [
+                        {
+                            "type": "Microsoft.OperationalInsights/workspaces/tables",
+                            "apiVersion": "2022-10-01",
+                            "name": "[concat(variables('WorkspaceName'), '/', variables('TableName'))]",
+                            "properties": {
+                                "schema": {
+                                    "name": "[variables('TableName')]",
+                                    "columns": [
+                                        {
+                                            "name": "TimeGenerated",
+                                            "type": "datetime"
+                                        },
+                                        {
+                                            "name": "RawData",
+                                            "type": "dynamic"
+                                        },
+                                        {
+                                            "name": "category",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "description",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "domain_name",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "event_type",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "ip",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "issue_description",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "issue_scope",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "issue_validation",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "malware_family",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "match_description",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "port",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "related_domain_name",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "reverse_dns",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "service",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "shared_resource",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "source_time",
+                                            "type": "datetime"
+                                        },
+                                        {
+                                            "name": "tracking_id",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "urgency",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "vulnerability",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "weakness",
+                                            "type": "string"
+                                        },
+                                        {
+                                            "name": "x509_subject_cn",
+                                            "type": "string"
+                                        }
+                                    ]
+                                },
+                                "retentionInDays": 30,
+                                "plan": "Analytics"
+                            }
+                        }
+                    ]
+                }
+            }
+        },
+        {
+            "type": "Microsoft.Web/sites",
+            "apiVersion": "2018-11-01",
+            "name": "[variables('FunctionName')]",
+            "location": "[resourceGroup().location]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Storage/storageAccounts', tolower(variables('FunctionName')))]"
+            ],
+            "kind": "functionapp,linux",
+            "identity": {
+                "type": "SystemAssigned"
+            },
+            "properties": {
+                "name": "[variables('FunctionName')]",
+                "httpsOnly": true,
+                "reserved": true,
+                "siteConfig": {
+                    "linuxFxVersion": "python|3.12"
+                }
+            },
+            "resources": [
+                {
+                    "apiVersion": "2015-08-01",
+                    "type": "config",
+                    "name": "appsettings",
+                    "dependsOn": [
+                        "[concat('Microsoft.Web/sites/', variables('FunctionName'))]",
+                        "[resourceId('Microsoft.Resources/deployments', variables('MonitoringDeploymentName'))]"
+                    ],
+                    "properties": {
+                        "AzureWebJobsStorage": "[concat('DefaultEndpointsProtocol=https;AccountName=', toLower(variables('FunctionName')),';AccountKey=',listKeys(resourceId('Microsoft.Storage/storageAccounts', toLower(variables('FunctionName'))), '2019-06-01').keys[0].value, ';EndpointSuffix=',toLower(variables('StorageSuffix')))]",
+                        "FUNCTIONS_EXTENSION_VERSION": "~4",
+                        "FUNCTIONS_WORKER_RUNTIME": "python",
+                        "DCE_ENDPOINT": "[reference(resourceId('Microsoft.Resources/deployments', variables('MonitoringDeploymentName')), '2022-09-01').outputs.DceEndpoint.value]",
+                        "DCR_RULE_ID": "[reference(resourceId('Microsoft.Resources/deployments', variables('MonitoringDeploymentName')), '2022-09-01').outputs.DcrImmutableId.value]",
+                        "DCR_STREAM_NAME": "[variables('DcrStreamName')]",
+                        "EWS_URL": "[parameters('EwsUrl')]",
+                        "WEBSITE_RUN_FROM_PACKAGE": "[parameters('PackageUrl')]"
+                    }
+                }
+            ]
+        },
+        {
+            "type": "Microsoft.Authorization/roleAssignments",
+            "apiVersion": "2022-04-01",
+            "name": "[guid(resourceId('Microsoft.Insights/dataCollectionRules', variables('DcrName')), variables('FunctionName'), 'MonitoringMetricsPublisher')]",
+            "condition": "[parameters('AssignDcrRoleToFunctionIdentity')]",
+            "scope": "[resourceId('Microsoft.Insights/dataCollectionRules', variables('DcrName'))]",
+            "dependsOn": [
+                "[resourceId('Microsoft.Web/sites', variables('FunctionName'))]",
+                "[resourceId('Microsoft.Resources/deployments', variables('MonitoringDeploymentName'))]"
+            ],
+            "properties": {
+                "principalId": "[reference(resourceId('Microsoft.Web/sites', variables('FunctionName')), '2018-11-01', 'Full').identity.principalId]",
+                "principalType": "ServicePrincipal",
+                "roleDefinitionId": "[subscriptionResourceId('Microsoft.Authorization/roleDefinitions', '3913510d-42f4-4e42-8a64-420c390055eb')]"
+            }
+        }
+    ]
+}
